@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 )
@@ -15,7 +16,7 @@ func main() {
 }
 
 func server() {
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,25 +34,31 @@ func server() {
 }
 
 func handleConnection(conn net.Conn) {
-	buffer := make([]byte, 1024)
-	conn.Read(buffer) // Read seq
+	seq := make([]byte, 1)
+	ack := make([]byte, 1)
+	ack[0] = 200
 
-	println("Server")
-	println((buffer[0]))
+	conn.Read(seq) // Read seq
 
-	buffer[0] += 1
+	//Adds 1 to the seq recived
+	seq[0] += 1
 
-	conn.Write(buffer)      // Send seq + 1
-	conn.Write([]byte{200}) // Send ack
+	//Send the seq + 1 and ack
+	conn.Write(seq) // Sends seq + 1
+	conn.Write(ack) // Send ack
 
-	conn.Read(buffer) // Read seq + 1
+	//Reads the ack + 1 and seq + 1
+	seqRecived := make([]byte, 1)
+	ackRecived := make([]byte, 1)
+	conn.Read(seqRecived)
+	conn.Read(ackRecived)
 
-	println("Server")
-	println((buffer[0]))
-
-	conn.Read(buffer) // Read ack + 1
-
-	println((buffer[0]))
+	//Test that they are correct
+	if seqRecived[0] == seq[0] && ackRecived[0] == (ack[0]+1) {
+		fmt.Println("Correct seq and ack recived")
+	} else {
+		fmt.Println("Not correct")
+	}
 }
 
 func client() {
@@ -59,22 +66,30 @@ func client() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	//Makes the byte to send
+	seqSend := make([]byte, 1)
+	seqSend[0] = 100
 
-	dial.Write([]byte{100}) // Send seq
+	// Send seq
+	dial.Write(seqSend)
 
-	buffer := make([]byte, 1024)
+	//Make recivers
+	ackReceived := make([]byte, 1)
+	seqRecived := make([]byte, 1)
 
-	dial.Read(buffer) // Read seq + 1
+	//Reads recives values and prints them
+	dial.Read(seqRecived)  // Reads seq + 1
+	dial.Read(ackReceived) // Reads ack
 
-	println("Client")
-	println((buffer[0]))
-
-	dial.Write(buffer) // Write seq + 1
-	dial.Read(buffer)  // Read ack
-
-	println((buffer[0]))
-
-	buffer[0] += 1
-
-	dial.Write(buffer) // Send ack + 1
+	//Checks that the correct value is recived
+	if seqRecived[0] == (seqSend[0] + 1) {
+		fmt.Println("Correct seq recived")
+	} else {
+		fmt.Println("Not correct")
+	}
+	//Adds 1 to the ack
+	ackReceived[0] += 1
+	//Sends back the ack + 1 and recived to establish the connection
+	dial.Write(seqRecived)
+	dial.Write(ackReceived)
 }
